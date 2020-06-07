@@ -244,12 +244,6 @@ namespace LogImpl {
 		using result_type = decltype(WTFDaYo(TS<C>(), TS<Cs...>()));
 	};
 
-	template <char Q, typename Acc, typename Str>
-	using TakeUntilQuote = typename WTF<Q, Acc, Str>::result_type::acc;
-
-	template <char Q, typename Acc, typename Str>
-	using DropUntilQuote = typename WTF<Q, Acc, Str>::result_type::rem;
-
 
 	template <typename, typename, typename, typename>
 	struct SIP { using result_type = OhNo; };
@@ -269,24 +263,24 @@ namespace LogImpl {
 		}
 
 		template <char D, enable_if_t<S == D, int> = 0>
-		static auto WTF(TS<D>)
+		static auto WTFDaYo(TS<D>)
 			-> SIPT<Result, TS<Ss...>, TS<Acc..., D>, TS<Cs...>>;
 
-		template <char D, enable_if_t<SIIsQuote(D), int> = 0>
-		static auto WTF(TS<D>)
+		template <char D, enable_if_t<SIIsQuote(D), int> = 0,
+			typename WTFRes = typename WTF<C, TS<Acc..., D>, TS<Cs...>>::result_type>
+		static auto WTFDaYo(TS<D>)
 			-> SIPT<Result, TS<S, Ss...>,
-					TakeUntilQuote<C, TS<Acc..., D>, TS<Cs...>>,
-					DropUntilQuote<C, TS<Acc..., D>, TS<Cs...>>>;
+					typename WTFRes::acc, typename WTFRes::rem>;
 
 		template <char D, enable_if_t<SIIsOpenParam(D), int> = 0>
-		static auto WTF(TS<D>)
+		static auto WTFDaYo(TS<D>)
 			-> SIPT<Result, TS<SIMapParam(C), S, Ss...>, TS<Acc..., D>, TS<Cs...>>;
 
 		template <char D, enable_if_t<Else(D), int> = 0>
-		static auto WTF(TS<D>)
+		static auto WTFDaYo(TS<D>)
 			-> SIPT<Result, TS<S, Ss...>, TS<Acc..., D>, TS<Cs...>>;
 
-		using result_type = decltype(WTF(TS<C>()));
+		using result_type = decltype(WTFDaYo(TS<C>()));
 	};
 
 	template <typename... Strs, char... Acc, char C, char... Cs>
@@ -306,12 +300,13 @@ namespace LogImpl {
 				TS<Cs...>
 			>;
 
-		template <char D, enable_if_t<SIIsQuote(D), int> = 0>
+		template <char D, enable_if_t<SIIsQuote(D), int> = 0,
+			typename WTFRes = typename WTF<C, TS<Acc..., D>, TS<Cs...>>::result_type>
 		static auto FML(TS<D>)
 			-> SIT<
-					tuple<Strs...>,
-					TakeUntilQuote<C, TS<Acc..., D>, TS<Cs...>>,
-					DropUntilQuote<C, TS<Acc..., D>, TS<Cs...>>
+				tuple<Strs...>,
+				typename WTFRes::acc,
+				typename WTFRes::rem
 			>;
 
 		template <char D, enable_if_t<SIIsOpenParam(D), int> = 0>
