@@ -292,24 +292,34 @@ namespace LogImpl {
 
 	template <typename... Strs, char... Acc, char C, char... Cs>
 	struct SI<tuple<Strs...>, TS<Acc...>, TS<C, Cs...>> {
-		using result_type =
-			conditional_t<
-				(C == ','),
-				SIT<
-					tuple<Strs..., decltype(StripSpaces(TS<Acc...>()))>,
-					TS<>, TS<Cs...>>,
-			conditional_t<
-				SIIsQuote(C),
-				SIT<
+		static constexpr bool IsNormalChar(char c) {
+			return !(c == ',' || SIIsQuote(c) || SIIsOpenParam(c));
+		}
+
+		template <char D, enable_if_t<IsNormalChar(D), int> = 0>
+		static auto FML(TS<D>)
+			-> SIT<tuple<Strs...>, TS<Acc..., D>, TS<Cs...>>;
+
+		static auto FML(TS<','>)
+			-> SIT<
+				tuple<Strs..., decltype(StripSpaces(TS<Acc...>()))>,
+				TS<>,
+				TS<Cs...>
+			>;
+
+		template <char D, enable_if_t<SIIsQuote(D), int> = 0>
+		static auto FML(TS<D>)
+			-> SIT<
 					tuple<Strs...>,
-					TakeUntilQuote<C, TS<Acc..., C>, TS<Cs...>>,
-					DropUntilQuote<C, TS<Acc..., C>, TS<Cs...>>>,
-			conditional_t<
-				SIIsOpenParam(C),
-				SIPT<tuple<Strs...>, TS<SIMapParam(C)>, TS<Acc..., C>, TS<Cs...>>,
-			// else
-				SIT<tuple<Strs...>, TS<Acc..., C>, TS<Cs...>>
-			>>>;
+					TakeUntilQuote<C, TS<Acc..., D>, TS<Cs...>>,
+					DropUntilQuote<C, TS<Acc..., D>, TS<Cs...>>
+			>;
+
+		template <char D, enable_if_t<SIIsOpenParam(D), int> = 0>
+		static auto FML(TS<D>)
+			-> SIPT<tuple<Strs...>, TS<SIMapParam(D)>, TS<Acc..., D>, TS<Cs...>>;
+
+		using result_type = decltype(FML(TS<C>()));
 	};
 
 
