@@ -11,9 +11,6 @@ namespace LogImpl {
 	template <bool B, class T = void>
 	using enable_if_t = typename enable_if<B, T>::type;
 
-	template <bool B, class T, class F>
-	using conditional_t = typename conditional<B, T, F>::type;
-
 	template <char... Cs>
 	using TS = irqus::typestring<Cs...>;
 
@@ -178,10 +175,6 @@ namespace LogImpl {
 
 	constexpr bool SIIsQuote(const char c) {
 		return c == '"' || c == '\'';
-	}
-
-	constexpr bool SIIsNono(const char c) {
-		return c == ',' || SIIsQuote(c) || SIIsOpenParam(c);
 	}
 
 	template <typename, typename, typename>
