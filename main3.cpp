@@ -190,14 +190,17 @@ namespace LogImpl {
 	template <typename A, typename B, typename C>
 	using SIT = typename SI<A, B, C>::result_type;
 
-	template <typename... Strs, char... Cs>
-	struct SI<tuple<Strs...>, TS<Cs...>, TS<>> {
-		using result_type =
-			conditional_t<
-				sizeof...(Cs) == 0,
-				tuple<Strs...>,
-				tuple<Strs..., decltype(StripSpaces(TS<Cs...>()))>
-			>;
+
+	template <typename Strs, typename Rem>
+	struct SI<Strs, Rem, TS<>> {
+		template <typename... IStrs, char C, char... Cs>
+		static auto FuckMyLife(tuple<IStrs...>, TS<C, Cs...>)
+			-> tuple<IStrs..., decltype(StripSpaces(TS<C, Cs...>()))>;
+
+		static auto FuckMyLife(Strs, TS<>)
+			-> Strs;
+
+		using result_type = decltype(FuckMyLife(Strs(), Rem()));
 	};
 
 	template <typename, char, typename, typename>
