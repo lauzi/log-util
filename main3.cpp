@@ -375,7 +375,9 @@ int main()
 	LOG("WTF", a, (d));
 	LOG("WTF", a, b, "c", (d));
 	LOG("WTF", a, b  , c[a]);
-	// LOG("WTF2", a, b, ((a))                , c[a], d);
+	/*
+	LOG("WTF2", a, b, ((a))                , c[a], d);
+	*/
 
 	puts(LogImpl::RemoveParamPairs(typestring_is("((aa()))")()).data());
 	puts(LogImpl::StripSpaces(typestring_is("         ((aa()))  ")()).data());
