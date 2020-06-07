@@ -273,21 +273,29 @@ namespace LogImpl {
 
 	template <typename Result, char S, char... Ss, char... Acc, char C, char... Cs>
 	struct SIP<Result, TS<S, Ss...>, TS<Acc...>, TS<C, Cs...>> {
-		using result_type =
-			conditional_t<
-				S == C,
-				SIPT<Result, TS<Ss...>, TS<Acc..., C>, TS<Cs...>>,
-			conditional_t<
-				SIIsQuote(C),
-				SIPT<Result, TS<S, Ss...>,
-					 TakeUntilQuote<C, TS<Acc..., C>, TS<Cs...>>,
-					 DropUntilQuote<C, TS<Acc..., C>, TS<Cs...>>>,
-			conditional_t<
-				SIIsOpenParam(C),
-				SIPT<Result, TS<SIMapParam(C), S, Ss...>, TS<Acc..., C>, TS<Cs...>>,
-			// else
-				SIPT<Result, TS<S, Ss...>, TS<Acc..., C>, TS<Cs...>>
-			>>>;
+		static constexpr bool Else(char d) {
+			return !(S == d || SIIsQuote(d) || SIIsOpenParam(d));
+		}
+
+		template <char D, enable_if_t<S == D, int> = 0>
+		static auto WTF(TS<D>)
+			-> SIPT<Result, TS<Ss...>, TS<Acc..., D>, TS<Cs...>>;
+
+		template <char D, enable_if_t<SIIsQuote(D), int> = 0>
+		static auto WTF(TS<D>)
+			-> SIPT<Result, TS<S, Ss...>,
+					TakeUntilQuote<C, TS<Acc..., D>, TS<Cs...>>,
+					DropUntilQuote<C, TS<Acc..., D>, TS<Cs...>>>;
+
+		template <char D, enable_if_t<SIIsOpenParam(D), int> = 0>
+		static auto WTF(TS<D>)
+			-> SIPT<Result, TS<SIMapParam(C), S, Ss...>, TS<Acc..., D>, TS<Cs...>>;
+
+		template <char D, enable_if_t<Else(D), int> = 0>
+		static auto WTF(TS<D>)
+			-> SIPT<Result, TS<S, Ss...>, TS<Acc..., D>, TS<Cs...>>;
+
+		using result_type = decltype(WTF(TS<C>()));
 	};
 
 	template <typename... Strs, char... Acc, char C, char... Cs>
