@@ -241,16 +241,23 @@ namespace LogImpl {
 
 	template <char Q, char... Acc, char C, char... Cs>
 	struct WTF<Q, TS<Acc...>, TS<C, Cs...>> {
-		using result_type =
-			conditional_t<
-				C == Q,
-				WTFResult<TS<Acc..., C>, TS<Cs...>>,
-			conditional_t<
-				C == '\\',
-				typename WTF<Q, TS<Acc..., Head<Cs...>()>, Tail<Cs...>>::result_type,
-			// else
-				typename WTF<Q, TS<Acc..., C>, TS<Cs...>>::result_type
-			>>;
+		static constexpr bool Else(char d) {
+			return !(d == Q || d == '\\');
+		}
+
+		template <char D, enable_if_t<D == Q, int> = 0>
+		static auto WTFDaYo(TS<D>)
+			-> WTFResult<TS<Acc..., C>, TS<Cs...>>;
+
+		template <char D, enable_if_t<D == '\\', int> = 0>
+		static auto WTFDaYo(TS<D>)
+			-> typename WTF<Q, TS<Acc..., Head<Cs...>()>, Tail<Cs...>>::result_type;
+
+		template <char D, enable_if_t<Else(D), int> = 0>
+		static auto WTFDaYo(TS<D>)
+			-> typename WTF<Q, TS<Acc..., C>, TS<Cs...>>::result_type;
+
+		using result_type = decltype(WTFDaYo(TS<C>()));
 	};
 
 	template <char Q, typename Acc, typename Str>
