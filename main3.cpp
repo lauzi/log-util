@@ -213,22 +213,6 @@ namespace LogImpl {
 	auto SIQSlurp(A, TS<Acc...>, TS<C, Cs...>)
 		-> typename SIQ<A, Q, TS<Acc..., C>, TS<Cs...>>::result_type;
 
-	template <char C, char... Cs>
-	constexpr char HeadImpl(TS<C, Cs...>) { return C; }
-
-	constexpr char HeadImpl(TS<>) { return '\0'; }
-
-	template <char... Cs>
-	constexpr char Head() { return HeadImpl(TS<Cs...>()); }
-
-	template <char C, char... Cs>
-	auto TailImpl(TS<C, Cs...>) -> TS<Cs...>;
-
-	auto TailImpl(TS<>) -> TS<>;
-
-	template <char... Cs>
-	using Tail = decltype(TailImpl(TS<Cs...>()));
-
 
 	template <typename Acc, typename Rem>
 	struct WTFResult {
@@ -245,19 +229,19 @@ namespace LogImpl {
 			return !(d == Q || d == '\\');
 		}
 
-		template <char D, enable_if_t<D == Q, int> = 0>
-		static auto WTFDaYo(TS<D>)
+		template <char D, typename Ds, enable_if_t<D == Q, int> = 0>
+		static auto WTFDaYo(TS<D>, Ds)
 			-> WTFResult<TS<Acc..., C>, TS<Cs...>>;
 
-		template <char D, enable_if_t<D == '\\', int> = 0>
-		static auto WTFDaYo(TS<D>)
-			-> typename WTF<Q, TS<Acc..., Head<Cs...>()>, Tail<Cs...>>::result_type;
+		template <char D, char E, char... Es>
+		static auto WTFDaYo(TS<'\\'>, TS<E, Es...>)
+			-> typename WTF<Q, TS<Acc..., E>, TS<Es...>>::result_type;
 
-		template <char D, enable_if_t<Else(D), int> = 0>
-		static auto WTFDaYo(TS<D>)
+		template <char D, typename Es, enable_if_t<Else(D), int> = 0>
+		static auto WTFDaYo(TS<D>, Es)
 			-> typename WTF<Q, TS<Acc..., C>, TS<Cs...>>::result_type;
 
-		using result_type = decltype(WTFDaYo(TS<C>()));
+		using result_type = decltype(WTFDaYo(TS<C>(), TS<Cs...>()));
 	};
 
 	template <char Q, typename Acc, typename Str>
