@@ -1,120 +1,457 @@
+#include "typestring/typestring.hh"
+
 #include <cstdio>
+#include <tuple>
+#include <string>
+#include <type_traits>
 
 namespace LogImpl {
 
-	// cause c++11 sucks
+	using namespace std;
 
-	// sequence of integers
-	template <int... Ints>
-	struct Seq { int length = sizeof...(Ints); };
+	template <bool B, class T = void>
+	using enable_if_t = typename enable_if<B, T>::type;
 
-	template <int K, int N, int... Acc>
-	struct RangeImpl { using result_type = typename RangeImpl<K+1, N, Acc..., K>::result_type; };
+	template <bool B, class T, class F>
+	using conditional_t = typename conditional<B, T, F>::type;
 
-	template <int N, int... Acc>
-	struct RangeImpl<N, N, Acc...> { using result_type = Seq<Acc...>; };
-
-	// sequence of N integers from 0 to N-1
-	template <int N>
-	using Range = typename RangeImpl<0, N>::result_type;
+	template <char... Cs>
+	using TS = irqus::typestring<Cs...>;
 
 
-	// madness
-	template <int N>
-	class SCS
-	{
-		const char str_[N + 1];
+	// OhNo
+	struct OhNo { using result_type = typestring_is(("OhNo")); };
 
-	public:
-		template <int N2, int... N3S>
-		constexpr SCS(const char(&str)[N2], const Seq<N3S...>&)
-			: str_{str[N3S]..., '\0'}
-		{}
 
-		template <int N2>
-		constexpr SCS(const char(&str)[N2]) : SCS(str, Range<N>{}) {}
+	// StripTrailingUnderscores
+	template <typename, typename, typename>
+	struct STUI {};
 
-		template <int N1, int... N1S, int... N2S>
-		constexpr SCS(const char (&a)[N1], const char (&b)[N-N1], const Seq<N1S...>&, const Seq<N2S...>&)
-			: str_{a[N1S]..., b[N2S]..., '\0'}
-		{}
-
-		template <int N1, int... N1S, int... N2S, int N2=N-N1>
-		constexpr SCS(const char (&a)[N1], const char (&b)[N2])
-			: SCS(a, b, Range<N1>{}, Range<N2>{})
-		{}
-
-		constexpr char operator[] (std::size_t n) const { return str_[n]; }
-		constexpr std::size_t Length() const { return N; }
-
-		constexpr operator const char*() const { return &str_[0]; }
-
-		template <int N2>
-		constexpr SCS<N+N2> operator+ (const SCS<N2> &o) const { return SCS<N+N2>(*this, o); }
-
-		static constexpr int PopBackLength(const int n) { return n > 0 ? n-1 : 0; }
-		constexpr SCS<PopBackLength(N)> PopBack() const {
-			return SCS<PopBackLength(N)>(str_);
-		}
+	template <char... As, char... Bs>
+	struct STUI<TS<As...>, TS<Bs...>, TS<>> {
+		using result_type = TS<As...>;
 	};
 
-	template <int N>
-	constexpr int RTULen(const SCS<N> &s) {
+	template <char... As, char... Bs, char... Cs>
+	struct STUI<TS<As...>, TS<Bs...>, TS<'_', Cs...>> {
+		using result_type = typename STUI<
+			TS<As...>,
+			TS<Bs..., '_'>,
+			TS<Cs...>
+		>::result_type;
+	};
+
+	template <char... As, char... Bs, char C, char... Cs>
+	struct STUI<TS<As...>, TS<Bs...>, TS<C, Cs...>> {
+		using result_type = typename STUI<
+			TS<As..., Bs..., C>,
+			TS<>,
+			TS<Cs...>
+		>::result_type;
+	};
+
+	template <char... Cs>
+	auto StripTrailingUnderscores(TS<Cs...>) ->
+		typename STUI<TS<>, TS<>, TS<Cs...>>::result_type {
+		return {};
+	}
+
+	// RemoveParamPairs
+	template <typename, typename, typename, typename>
+	struct RPPI { using result_type = OhNo; };
+
+	template <char... As, char... Bs>
+	struct RPPI<TS<As...>, TS<>, TS<>, TS<'(', Bs...>> {
+		using result_type = typename RPPI<
+			TS<As..., '('>,
+			TS<>,
+			TS<>,
+			TS<Bs...>
+		>::result_type;
+	};
+
+	template <char... As, char... Bs, char... Cs, char... Ds>
+	struct RPPI<TS<As...>, TS<Bs...>, TS<Cs...>, TS<')', Ds...>> {
+		using result_type = typename RPPI<
+			TS<As...>,
+			TS<Bs...>,
+			TS<Cs..., ')'>,
+			TS<Ds...>
+		>::result_type;
+	};
+
+	template <char... As, char... Bs, char... Cs, char D, char... Ds>
+	struct RPPI<TS<As...>, TS<Bs...>, TS<Cs...>, TS<D, Ds...>> {
+		using result_type = typename RPPI<
+			TS<As...>,
+			TS<Bs..., Cs..., D>,
+			TS<>,
+			TS<Ds...>
+		>::result_type;
+	};
+
+	template <typename, typename, typename>
+	struct RPPIQQ;
+
+	template <char... As, char... Bs, char... Cs>
+	struct RPPIQQ<TS<'(', As...>, TS<Bs...>, TS<')', Cs...>> {
+		using result_type = typename RPPIQQ<
+			TS<As...>,
+			TS<Bs...>,
+			TS<Cs...>
+		>::result_type;
+	};
+
+	template <char... As, char... Bs, char... Cs>
+	struct RPPIQQ<TS<As...>, TS<Bs...>, TS<Cs...>> {
+		using result_type = TS<As..., Bs..., Cs...>;
+	};
+
+	template <char... As, char... Bs, char... Cs>
+	struct RPPI<TS<As...>, TS<Bs...>, TS<Cs...>, TS<>> {
+		using result_type = typename RPPIQQ<
+			TS<As...>,
+			TS<Bs...>,
+			TS<Cs...>
+		>::result_type;
+	};
+
+	template <char... Cs>
+	auto RemoveParamPairs(TS<Cs...>) ->
+		typename RPPI<TS<>, TS<>, TS<>, TS<Cs...>>::result_type {
+		return {};
+	}
+
+
+	// Strip
+	template <typename, typename, typename>
+	struct SSI {};
+
+	template <char... Cs>
+	struct SSI<TS<>, TS<>, TS<' ', Cs...>> {
+		using result_type = typename SSI<
+			TS<>,
+			TS<>,
+			TS<Cs...>
+		>::result_type;
+	};
+
+	template <char... As, char... Bs, char... Cs>
+	struct SSI<TS<As...>, TS<Bs...>, TS<' ', Cs...>> {
+		using result_type = typename SSI<
+			TS<As...>,
+			TS<Bs..., ' '>,
+			TS<Cs...>
+		>::result_type;
+	};
+
+	template <char... As, char... Bs, char C, char... Cs>
+	struct SSI<TS<As...>, TS<Bs...>, TS<C, Cs...>> {
+		using result_type = enable_if_t<C != ' ', typename SSI<
+			TS<As..., Bs..., C>,
+			TS<>,
+			TS<Cs...>
+		>::result_type>;
+	};
+
+	template <typename Acc, typename Spaces>
+	struct SSI<Acc, Spaces, TS<>> { using result_type = Acc; };
+
+	template <typename Str>
+	auto StripSpaces(Str) -> typename SSI<TS<>, TS<>, Str>::result_type {
+		return {};
+	}
+
+
+
+
+	constexpr bool SIIsOpenParam(const char c) {
+		return c == '(' || c == '[' || c == '{';
+	}
+
+	constexpr char SIMapParam(const char c) {
 		return
-			N <= 0 ? 0 :
-			s[N-1] == '_' ? RTULen(s.PopBack()) :
-			s.Length();
+			c == '(' ? ')' :
+			c == '[' ? ']' :
+			c == '{' ? '}' :
+			'\0';
 	}
 
-	template <int N, int M>
-	// constexpr auto RemoveTrailingUnderscores(const SCS<N> &s) -> SCS<RTULen(s)> {
-		constexpr auto RemoveTrailingUnderscores(const SCS<N> &s) -> SCS<M> {
-		return
-			N <= 0 ? s :
-			s[N-1] == '_' ? RemoveTrailingUnderscores(s.PopBack()) :
-			s;
+	constexpr bool SIIsQuote(const char c) {
+		return c == '"' || c == '\'';
 	}
 
-	constexpr int StrLen(const char* str) {
-		return str[0] == '\0' ? 0 : 1 + StrLen(str+1);
+	template <typename, typename, typename>
+	struct SI { using result_type = OhNo; };
+
+	template <typename A, typename B, typename C>
+	using SIT = typename SI<A, B, C>::result_type;
+
+
+	template <typename Strs, typename Rem>
+	struct SI<Strs, Rem, TS<>> {
+		template <typename... IStrs, char C, char... Cs>
+		static auto FuckMyLife(tuple<IStrs...>, TS<C, Cs...>)
+			-> tuple<IStrs..., decltype(StripSpaces(TS<C, Cs...>()))>;
+
+		static auto FuckMyLife(Strs, TS<>)
+			-> Strs;
+
+		using result_type = decltype(FuckMyLife(Strs(), Rem()));
+	};
+
+	template <typename, char, typename, typename>
+	struct SIQ { using result_type = OhNo; };
+
+	template <typename A, char B, typename C, typename D>
+	using SIQT = typename SIQ<A, B, C, D>::result_type;
+
+	template <char Q, typename A, char... Acc, char C, char... Cs>
+	auto SIQSlurp(A, TS<Acc...>, TS<C, Cs...>)
+		-> typename SIQ<A, Q, TS<Acc..., C>, TS<Cs...>>::result_type;
+
+
+	template <typename Acc, typename Rem>
+	struct WTFResult {
+		using acc = Acc;
+		using rem = Rem;
+	};
+
+	template <char, typename, typename>
+	struct WTF { using result_type = WTFResult<OhNo, OhNo>; };
+
+	template <char Q, char... Acc, char C, char... Cs>
+	struct WTF<Q, TS<Acc...>, TS<C, Cs...>> {
+		static constexpr bool Else(char d) {
+			return !(d == Q || d == '\\');
+		}
+
+		template <char D, typename Ds, enable_if_t<D == Q, int> = 0>
+		static auto WTFDaYo(TS<D>, Ds)
+			-> WTFResult<TS<Acc..., C>, TS<Cs...>>;
+
+		template <char D, char E, char... Es>
+		static auto WTFDaYo(TS<'\\'>, TS<E, Es...>)
+			-> typename WTF<Q, TS<Acc..., E>, TS<Es...>>::result_type;
+
+		template <char D, typename Es, enable_if_t<Else(D), int> = 0>
+		static auto WTFDaYo(TS<D>, Es)
+			-> typename WTF<Q, TS<Acc..., C>, TS<Cs...>>::result_type;
+
+		using result_type = decltype(WTFDaYo(TS<C>(), TS<Cs...>()));
+	};
+
+
+	template <typename, typename, typename, typename>
+	struct SIP { using result_type = OhNo; };
+
+	template <typename A, typename B, typename C, typename D>
+	using SIPT = typename SIP<A, B ,C, D>::result_type;
+
+	template <typename Result, typename Acc, typename Rem>
+	struct SIP<Result, TS<>, Acc, Rem> {
+		using result_type = SIT<Result, Acc, Rem>;
+	};
+
+	template <typename Result, char S, char... Ss, char... Acc, char C, char... Cs>
+	struct SIP<Result, TS<S, Ss...>, TS<Acc...>, TS<C, Cs...>> {
+		static constexpr bool Else(char d) {
+			return !(S == d || SIIsQuote(d) || SIIsOpenParam(d));
+		}
+
+		template <char D, enable_if_t<S == D, int> = 0>
+		static auto WTFDaYo(TS<D>)
+			-> SIPT<Result, TS<Ss...>, TS<Acc..., D>, TS<Cs...>>;
+
+		template <char D, enable_if_t<SIIsQuote(D), int> = 0,
+			typename WTFRes = typename WTF<C, TS<Acc..., D>, TS<Cs...>>::result_type>
+		static auto WTFDaYo(TS<D>)
+			-> SIPT<Result, TS<S, Ss...>,
+					typename WTFRes::acc, typename WTFRes::rem>;
+
+		template <char D, enable_if_t<SIIsOpenParam(D), int> = 0>
+		static auto WTFDaYo(TS<D>)
+			-> SIPT<Result, TS<SIMapParam(C), S, Ss...>, TS<Acc..., D>, TS<Cs...>>;
+
+		template <char D, enable_if_t<Else(D), int> = 0>
+		static auto WTFDaYo(TS<D>)
+			-> SIPT<Result, TS<S, Ss...>, TS<Acc..., D>, TS<Cs...>>;
+
+		using result_type = decltype(WTFDaYo(TS<C>()));
+	};
+
+	template <typename... Strs, char... Acc, char C, char... Cs>
+	struct SI<tuple<Strs...>, TS<Acc...>, TS<C, Cs...>> {
+		static constexpr bool IsNormalChar(char c) {
+			return !(c == ',' || SIIsQuote(c) || SIIsOpenParam(c));
+		}
+
+		template <char D, enable_if_t<IsNormalChar(D), int> = 0>
+		static auto FML(TS<D>)
+			-> SIT<tuple<Strs...>, TS<Acc..., D>, TS<Cs...>>;
+
+		static auto FML(TS<','>)
+			-> SIT<
+				tuple<Strs..., decltype(StripSpaces(TS<Acc...>()))>,
+				TS<>,
+				TS<Cs...>
+			>;
+
+		template <char D, enable_if_t<SIIsQuote(D), int> = 0,
+			typename WTFRes = typename WTF<C, TS<Acc..., D>, TS<Cs...>>::result_type>
+		static auto FML(TS<D>)
+			-> SIT<
+				tuple<Strs...>,
+				typename WTFRes::acc,
+				typename WTFRes::rem
+			>;
+
+		template <char D, enable_if_t<SIIsOpenParam(D), int> = 0>
+		static auto FML(TS<D>)
+			-> SIPT<tuple<Strs...>, TS<SIMapParam(D)>, TS<Acc..., D>, TS<Cs...>>;
+
+		using result_type = decltype(FML(TS<C>()));
+	};
+
+	template <char... Cs>
+		auto Split(TS<Cs...>) -> SIT<tuple<>, TS<>, TS<Cs...>> {
+		return {};
 	}
 
-	template <int MS, int FS, int AS, typename... Args>
-	void Log(
-			 const char(&msg_)[MS],
-			 const char (&file_)[FS],
-			 const int line,
-			 const char (&args_str_)[AS],
-			 Args&&... args
-	 ) {
-		constexpr SCS<MS-1> msg(msg_);
-		constexpr SCS<FS-1> file(file_);
-		constexpr SCS<AS-1> args_str(args_str_);
 
-		printf((const char*)RemoveTrailingUnderscores<AS-1,RTULen(args_str)>(args_str));
+	template <typename Name, typename Value>
+	struct Variable {
+		using name = Name;
+		using value_type = Value;
+		Value value;
+	};
+
+
+	template <int... Nums>
+	struct Seq {};
+
+
+	template <int UB, int Step>
+	struct RangeImpl {
+		static constexpr bool IsEndImpl(int lb) {
+			return
+				Step > 0 ? lb >= UB :
+				Step < 0 ? lb <= UB :
+				true;
+		}
+
+		template <int LB, typename Acc, enable_if_t<IsEndImpl(LB), int> = 0>
+		static auto QAQ(Seq<LB>, Acc) -> Acc;
+
+		template <int LB, int... Acc, enable_if_t<!IsEndImpl(LB), int> = 0>
+		static auto QAQ(Seq<LB>, Seq<Acc...>) -> decltype(QAQ(Seq<LB+Step>{}, Seq<Acc..., LB>{}));
+	};
+
+	template <int LB, int UB, int Step=1>
+	using Range = decltype(RangeImpl<UB, Step>::QAQ(Seq<LB>{}, Seq<>{}));
+
+	template <typename... Names, typename... Vars, int... Idxs>
+	auto ToVariablesImpl(tuple<Names...>, const tuple<const Vars&...> &vars, Seq<Idxs...>)
+		-> tuple<Variable<Names, const Vars&>...> {
+		return { Variable<Names, const Vars&>{ get<Idxs>(vars) }... };
+	}
+
+	template <typename... Names, typename... Vars>
+	auto ToVariables(tuple<Names...> names, const tuple<const Vars&...> &vars)
+		-> tuple<Variable<Names, const Vars&>...> {
+		return ToVariablesImpl(names, vars, Range<0, sizeof...(Names), 1>{});
+	}
+
+
+	auto GetFormat(char) -> typestring_is("%c");
+	auto GetFormat(int) -> typestring_is("%d");
+	auto GetFormat(float) -> typestring_is("%f");
+	auto GetFormat(double) -> typestring_is("%lf");
+	auto GetFormat(const char*) -> typestring_is("%s");
+	auto GetFormat(const std::string&) -> typestring_is("%s");
+
+	template <typename Var, int Idx>
+	struct CreateFormatImpl {
+		using result = irqus::tycat<
+			conditional_t<
+				Idx == 0,
+				typestring_is("("),
+				typestring_is(", ")
+			>,
+			decltype(RemoveParamPairs(typename Var::name{})),
+			typestring_is(": '"),
+			decltype(GetFormat(declval<typename Var::value_type>())),
+			typestring_is("'")
+		>;
+	};
+
+	template <typename... Vars, int... Idxs>
+	const char* CreateFormat(const tuple<Vars...> &, Seq<Idxs...>) {
+		return irqus::tycat<
+			typestring_is("%s (%4d): "),
+			typename CreateFormatImpl<Vars, Idxs>::result...,
+			typestring_is(")\n")
+		>::data();
+	}
+
+	const char* GetFormatted(const char* str) { return str; }
+	const char* GetFormatted(const std::string &str) { return str.c_str(); }
+
+	template <typename T, enable_if_t<is_integral<T>::value, int> = 0>
+	T GetFormatted(const T v) { return v; }
+
+	template <typename T, enable_if_t<is_floating_point<T>::value, int> = 0>
+	T GetFormatted(const T v) { return v; }
+
+	template <typename File, typename... Vars, int... Idx>
+		void PrintVars(const int line, const tuple<Vars...> &vars, Seq<Idx...>) {
+		printf(
+			CreateFormat(vars, Range<0, sizeof...(Vars)>{}),
+			File::data(), line,
+			GetFormatted(get<Idx>(vars).value)...
+		);
+	}
+
+	template <typename File>
+		void PrintVars(const int line, const tuple<>&, Seq<>) {
+		printf("%s (%4d): (Nothing yooooooolul)", File::data(), line);
+	}
+
+	// Log
+	template <typename Msg, typename File, typename ArgStr, typename... Args>
+	void Log(const int line, const Args&... args) {
+		auto&& split_arg_names = Split(ArgStr{});
+		auto&& args_tuple = tuple<const Args&...>(args...);
+		auto&& var_pack = ToVariables(split_arg_names, args_tuple);
+		PrintVars<File>(line, var_pack, Range<0, sizeof...(Args)>{});
 	}
 }
 
-#define LOG(msg, ...) LogImpl::Log(msg, __FILE__, __LINE__, #__VA_ARGS__, __VA_ARGS__)
-
-/*
-#define LOG(msg, ...) \
-	do { \
-	constexpr char LOG_IMPL ## __FILE__ ## __LINE__ ## [] = msg; \
-	LogImpl::Log((LOG_IMPL ## __FILE__ ## __LINE__ ## []), __FILE__, __LINE__, #__VA_ARGS__, __VA_ARGS__) \
+#define LOG(msg, ...) do											\
+		{															\
+			using Msg = typestring_is(msg);							\
+			using File = typestring_is(__FILE__);					\
+			using ArgStr = typestring_is(#__VA_ARGS__);				\
+			LogImpl::Log<Msg, File, ArgStr>(__LINE__, __VA_ARGS__); \
 		} while (0)
-*/
-
 
 int main()
 {
-	int a;
-	double b;
-	int c[3] = {};
-	int d___ = -1;
+	int a = 1;
+	double b = 128.322;
+	int c[3] = {2, 1, 0};
+	int d = -1;
 
-	constexpr char wtf[] = "WTF";
-	LOG(wtf, a, b, ((a))                , c[a], d___);
+	LOG("WTF", a);
+	LOG("WTF", a, b);
+	LOG("WTF", a, b, "c");
+	LOG("WTF", (d));
+	LOG("WTF", (d), a);
+	LOG("WTF", a, (d));
+	LOG("WTF", a, b, "c'", (d));
+	// LOG("WTF", '\\');  // TODO: bug
+	// LOG("WTF", a, b  , c[a]);  // TODO: slow
+	// LOG("WTF2", a, b, ((a)), c[a], d); // TODO: slow AF
 
 	return 0;
 }
