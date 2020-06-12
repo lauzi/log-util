@@ -270,9 +270,9 @@ namespace LogImpl {
 		static auto WTFDaYo(TS<D>, Ds)
 			-> WTFResult<TS<Acc..., C>, TS<Cs...>>;
 
-		template <char D, char E, char... Es>
+		template <char E, char... Es>
 		static auto WTFDaYo(TS<'\\'>, TS<E, Es...>)
-			-> typename WTF<Q, TS<Acc..., E>, TS<Es...>>::result_type;
+			-> typename WTF<Q, TS<Acc..., '\\', E>, TS<Es...>>::result_type;
 
 		template <char D, typename Es, enable_if_t<Else(D), int> = 0>
 		static auto WTFDaYo(TS<D>, Es)
@@ -487,7 +487,7 @@ int main()
 	LOG("WTF", (d), a);
 	LOG("WTF", a, (d));
 	LOG("WTF", a, b, "c'", (d));
-	// LOG("WTF", '\\');  // TODO: bug
+	LOG("WTF", '\\');
 	// LOG("WTF", a, b  , c[a]);  // TODO: slow
 	// LOG("WTF2", a, b, ((a)), c[a], d); // TODO: slow AF
 
