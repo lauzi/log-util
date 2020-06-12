@@ -19,6 +19,46 @@ namespace LogImpl {
 	using TS = irqus::typestring<Cs...>;
 
 
+	// Poor man's interger_sequence or sth
+	template <int... Nums>
+	struct Seq {};
+
+
+	template <int UB, int Step>
+	struct RangeImpl {
+		static constexpr bool IsEnd(int lb) {
+			return
+				Step > 0 ? lb >= UB :
+				Step < 0 ? lb <= UB :
+				true;
+		}
+
+		template <int, bool>
+		struct QAQ {};
+
+		template <int LB>
+		struct QAQ<LB, true> {
+			template <typename Acc>
+			static auto QAQAQ(Acc) -> Acc;
+		};
+
+		template <int LB>
+		struct QAQ<LB, false> {
+			static constexpr int Next = LB + Step;
+
+			template <int... Acc>
+			static auto QAQAQ(Seq<Acc...>)
+				-> decltype(QAQ<Next, IsEnd(Next)>::QAQAQ(Seq<Acc..., LB>{}));
+
+		};
+
+		template <int LB>
+		static auto Yo(Seq<LB>) -> decltype(QAQ<LB, IsEnd(LB)>::QAQAQ(Seq<>{}));
+	};
+
+	template <int LB, int UB, int Step=1>
+	using Range = decltype(RangeImpl<UB, Step>::Yo(Seq<LB>{}));
+
 	// OhNo
 	struct OhNo { using result_type = typestring_is(("OhNo")); };
 
@@ -327,44 +367,6 @@ namespace LogImpl {
 	};
 
 
-	template <int... Nums>
-	struct Seq {};
-
-
-	template <int UB, int Step>
-	struct RangeImpl {
-		static constexpr bool IsEnd(int lb) {
-			return
-				Step > 0 ? lb >= UB :
-				Step < 0 ? lb <= UB :
-				true;
-		}
-
-		template <int, bool>
-		struct QAQ {};
-
-		template <int LB>
-		struct QAQ<LB, true> {
-			template <typename Acc>
-			static auto QAQAQ(Acc) -> Acc;
-		};
-
-		template <int LB>
-		struct QAQ<LB, false> {
-			static constexpr int Next = LB + Step;
-
-			template <int... Acc>
-			static auto QAQAQ(Seq<Acc...>)
-				-> decltype(QAQ<Next, IsEnd(Next)>::QAQAQ(Seq<Acc..., LB>{}));
-
-		};
-
-		template <int LB>
-		static auto Yo(Seq<LB>) -> decltype(QAQ<LB, IsEnd(LB)>::QAQAQ(Seq<>{}));
-	};
-
-	template <int LB, int UB, int Step=1>
-	using Range = decltype(RangeImpl<UB, Step>::Yo(Seq<LB>{}));
 
 	template <typename... Names, typename... Vars, int... Idxs>
 	auto ToVariablesImpl(tuple<Names...>, const tuple<const Vars&...> &vars, Seq<Idxs...>)
