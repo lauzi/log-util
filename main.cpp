@@ -333,22 +333,38 @@ namespace LogImpl {
 
 	template <int UB, int Step>
 	struct RangeImpl {
-		static constexpr bool IsEndImpl(int lb) {
+		static constexpr bool IsEnd(int lb) {
 			return
 				Step > 0 ? lb >= UB :
 				Step < 0 ? lb <= UB :
 				true;
 		}
 
-		template <int LB, typename Acc, enable_if_t<IsEndImpl(LB), int> = 0>
-		static auto QAQ(Seq<LB>, Acc) -> Acc;
+		template <int, bool>
+		struct QAQ {};
 
-		template <int LB, int... Acc, enable_if_t<!IsEndImpl(LB), int> = 0>
-		static auto QAQ(Seq<LB>, Seq<Acc...>) -> decltype(QAQ(Seq<LB+Step>{}, Seq<Acc..., LB>{}));
+		template <int LB>
+		struct QAQ<LB, true> {
+			template <typename Acc>
+			static auto QAQAQ(Acc) -> Acc;
+		};
+
+		template <int LB>
+		struct QAQ<LB, false> {
+			static constexpr int Next = LB + Step;
+
+			template <int... Acc>
+			static auto QAQAQ(Seq<Acc...>)
+				-> decltype(QAQ<Next, IsEnd(Next)>::QAQAQ(Seq<Acc..., LB>{}));
+
+		};
+
+		template <int LB>
+		static auto Yo(Seq<LB>) -> decltype(QAQ<LB, IsEnd(LB)>::QAQAQ(Seq<>{}));
 	};
 
 	template <int LB, int UB, int Step=1>
-	using Range = decltype(RangeImpl<UB, Step>::QAQ(Seq<LB>{}, Seq<>{}));
+	using Range = decltype(RangeImpl<UB, Step>::Yo(Seq<LB>{}));
 
 	template <typename... Names, typename... Vars, int... Idxs>
 	auto ToVariablesImpl(tuple<Names...>, const tuple<const Vars&...> &vars, Seq<Idxs...>)
