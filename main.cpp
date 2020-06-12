@@ -391,7 +391,7 @@ namespace LogImpl {
 		using result = irqus::tycat<
 			conditional_t<
 				Idx == 0,
-				typestring_is("("),
+				typestring_is(" ("),
 				typestring_is(", ")
 			>,
 			decltype(RemoveParamPairs(typename Var::name{})),
@@ -401,14 +401,27 @@ namespace LogImpl {
 		>;
 	};
 
-	template <typename... Vars, int... Idxs>
+	template <typename File, typename Msg, typename... Vars, int... Idxs>
 	const char* CreateFormat(const tuple<Vars...> &, Seq<Idxs...>) {
 		return irqus::tycat<
-			typestring_is("%s (%4d): "),
+			File,
+			typestring_is(" (%4d): "),
+			Msg,
 			typename CreateFormatImpl<Vars, Idxs>::result...,
 			typestring_is(")\n")
 		>::data();
 	}
+
+	template <typename File, typename Msg>
+	const char* CreateFormat(const tuple<> &, Seq<>) {
+		return irqus::tycat<
+			File,
+			typestring_is(" (%4d): "),
+			Msg,
+			typestring_is(" (nothing lulululu)\n")
+		>::data();
+	}
+
 
 	const char* GetFormatted(const char* str) { return str; }
 	const char* GetFormatted(const std::string &str) { return str.c_str(); }
@@ -419,18 +432,13 @@ namespace LogImpl {
 	template <typename T, enable_if_t<is_floating_point<T>::value, int> = 0>
 	T GetFormatted(const T v) { return v; }
 
-	template <typename File, typename... Vars, int... Idx>
-		void PrintVars(const int line, const tuple<Vars...> &vars, Seq<Idx...>) {
+	template <typename File, typename Msg, typename... Vars, int... Idx>
+	void PrintVars(const int line, const tuple<Vars...> &vars, Seq<Idx...>) {
 		printf(
-			CreateFormat(vars, Range<0, sizeof...(Vars)>{}),
-			File::data(), line,
+			CreateFormat<File, Msg>(vars, Range<0, sizeof...(Vars)>{}),
+			line,
 			GetFormatted(get<Idx>(vars).value)...
 		);
-	}
-
-	template <typename File>
-		void PrintVars(const int line, const tuple<>&, Seq<>) {
-		printf("%s (%4d): (Nothing yooooooolul)", File::data(), line);
 	}
 
 	// Log
@@ -439,7 +447,7 @@ namespace LogImpl {
 		auto&& split_arg_names = Split(ArgStr{});
 		auto&& args_tuple = tuple<const Args&...>(args...);
 		auto&& var_pack = ToVariables(split_arg_names, args_tuple);
-		PrintVars<File>(line, var_pack, Range<0, sizeof...(Args)>{});
+		PrintVars<File, Msg>(line, var_pack, Range<0, sizeof...(Args)>{});
 	}
 }
 
