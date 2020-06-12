@@ -449,14 +449,25 @@ namespace LogImpl {
 		auto&& var_pack = ToVariables(split_arg_names, args_tuple);
 		PrintVars<File, Msg>(line, var_pack, Range<0, sizeof...(Args)>{});
 	}
+
+	// I don't know what's wrong with typestring_is("") so I'm doing this:
+	template <typename T>
+	auto FixEmptyTSImpl(T) -> T;
+
+	auto FixEmptyTSImpl(TS<'\0'>) -> TS<>;
+
+	template <typename T>
+	using FixEmptyTS = decltype(FixEmptyTSImpl(T{}));
 }
 
 #define LOG(msg, ...) do											\
 		{															\
+			using namespace LogImpl;								\
 			using Msg = typestring_is(msg);							\
 			using File = typestring_is(__FILE__);					\
 			using ArgStr = typestring_is(#__VA_ARGS__);				\
-			LogImpl::Log<Msg, File, ArgStr>(__LINE__, __VA_ARGS__); \
+			using RealArgStr = FixEmptyTS<ArgStr>;					\
+			Log<Msg, File, RealArgStr>(__LINE__, ## __VA_ARGS__);	\
 		} while (0)
 
 int main()
@@ -466,6 +477,7 @@ int main()
 	int c[3] = {2, 1, 0};
 	int d = -1;
 
+	LOG("WTF");
 	LOG("WTF", a);
 	LOG("WTF", a, b);
 	LOG("WTF", a, b, "c");
