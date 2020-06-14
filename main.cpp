@@ -502,9 +502,12 @@ namespace LogImpl {
 int main()
 {
 	int a = 1;
+	int aaaaaaaaaaa = 1;
 	double b = 128.322;
 	int c[3] = {2, 1, 0};
 	int d = -1;
+
+	std::string my_str = "hoho haha";
 
 	LOG("WTF");
 	LOG("WTF", a);
@@ -515,8 +518,11 @@ int main()
 	LOG("WTF", a, (d));
 	LOG("WTF", a, b, "c'", (d));
 	LOG("WTF", '\\');
-	// LOG("WTF", a, b  , c[a]);  // TODO: slow
-	// LOG("WTF2", a, b, ((a)), c[a], d); // TODO: slow AF
+	LOG("WTF", a, b, c[a]);
+	LOG("QQ", a);
+	LOG("QQ", aaaaaaaaaaa);
+	LOG("WTF2", a, b, ((a)), c[a], d);
+	LOG("str", my_str, "OHYEAH");
 
 	return 0;
 }
