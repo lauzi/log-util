@@ -49,7 +49,6 @@ namespace LogImpl {
 			template <int... Acc>
 			static auto QAQAQ(Seq<Acc...>)
 				-> decltype(QAQ<Next, IsEnd(Next)>::QAQAQ(Seq<Acc..., LB>{}));
-
 		};
 
 		template <int LB>
@@ -58,9 +57,6 @@ namespace LogImpl {
 
 	template <int LB, int UB, int Step=1>
 	using Range = decltype(RangeImpl<UB, Step>::Yo(Seq<LB>{}));
-
-	// OhNo
-	struct OhNo { using result_type = typestring_is(("OhNo")); };
 
 
 	// StripTrailingUnderscores
@@ -98,7 +94,7 @@ namespace LogImpl {
 
 	// RemoveParamPairs
 	template <typename, typename, typename, typename>
-	struct RPPI { using result_type = OhNo; };
+	struct RPPI {};
 
 	template <char... As, char... Bs>
 	struct RPPI<TS<As...>, TS<>, TS<>, TS<'(', Bs...>> {
@@ -222,7 +218,7 @@ namespace LogImpl {
 	}
 
 	template <typename, typename, typename>
-	struct SI { using result_type = OhNo; };
+	struct SI {};
 
 	template <typename A, typename B, typename C>
 	using SIT = typename SI<A, B, C>::result_type;
@@ -241,7 +237,7 @@ namespace LogImpl {
 	};
 
 	template <typename, char, typename, typename>
-	struct SIQ { using result_type = OhNo; };
+	struct SIQ {};
 
 	template <typename A, char B, typename C, typename D>
 	using SIQT = typename SIQ<A, B, C, D>::result_type;
@@ -257,33 +253,48 @@ namespace LogImpl {
 		using rem = Rem;
 	};
 
+	enum class WTFAction {
+		kEndQuote,
+		kEscape,
+		kSlurp,
+	};
+
+	template <WTFAction, char, typename, typename>
+	struct WTFDispatch {};
+
 	template <char, typename, typename>
-	struct WTF { using result_type = WTFResult<OhNo, OhNo>; };
+	struct WTF {};
 
 	template <char Q, char... Acc, char C, char... Cs>
-	struct WTF<Q, TS<Acc...>, TS<C, Cs...>> {
-		static constexpr bool Else(char d) {
-			return !(d == Q || d == '\\');
+	struct WTFDispatch<WTFAction::kEndQuote, Q, TS<Acc...>, TS<C, Cs...>> {
+		using result_type = WTFResult<TS<Acc..., C>, TS<Cs...>>;
+	};
+
+	template <char Q, char... Acc, char C, char... Cs>
+	struct WTFDispatch<WTFAction::kEscape, Q, TS<Acc...>, TS<C, Cs...>> {
+		using result_type = typename WTF<Q, TS<Acc..., '\\', C>, TS<Cs...>>::result_type;
+	};
+
+	template <char Q, char... Acc, char C, char... Cs>
+	struct WTFDispatch<WTFAction::kSlurp, Q, TS<Acc...>, TS<C, Cs...>> {
+		using result_type = typename WTF<Q, TS<Acc..., C>, TS<Cs...>>::result_type;
+	};
+
+	template <char Q, typename Acc, char C, char... Cs>
+	struct WTF<Q, Acc, TS<C, Cs...>> {
+		static constexpr WTFAction GetAction() {
+			return
+				C == Q ? WTFAction::kEndQuote :
+				C == '\\' ? WTFAction::kEscape :
+				WTFAction::kSlurp;
 		}
 
-		template <char D, typename Ds, enable_if_t<D == Q, int> = 0>
-		static auto WTFDaYo(TS<D>, Ds)
-			-> WTFResult<TS<Acc..., C>, TS<Cs...>>;
-
-		template <char E, char... Es>
-		static auto WTFDaYo(TS<'\\'>, TS<E, Es...>)
-			-> typename WTF<Q, TS<Acc..., '\\', E>, TS<Es...>>::result_type;
-
-		template <char D, typename Es, enable_if_t<Else(D), int> = 0>
-		static auto WTFDaYo(TS<D>, Es)
-			-> typename WTF<Q, TS<Acc..., C>, TS<Cs...>>::result_type;
-
-		using result_type = decltype(WTFDaYo(TS<C>(), TS<Cs...>()));
+		using result_type = typename WTFDispatch<GetAction(), Q, Acc, TS<C, Cs...>>::result_type;
 	};
 
 
 	template <typename, typename, typename, typename>
-	struct SIP { using result_type = OhNo; };
+	struct SIP {};
 
 	template <typename A, typename B, typename C, typename D>
 	using SIPT = typename SIP<A, B ,C, D>::result_type;
