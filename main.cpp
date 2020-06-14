@@ -320,41 +320,68 @@ namespace LogImpl {
 		using result_type = decltype(WTFDaYo(TS<C>()));
 	};
 
+
+	enum class SIAction {
+		kNormal,
+		kComma,
+		kQuote,
+		kOpenParam,
+	};
+
+	template <SIAction, typename Strs, typename Acc, typename Rem>
+	struct SIDispatch {};
+
 	template <typename... Strs, char... Acc, char C, char... Cs>
-	struct SI<tuple<Strs...>, TS<Acc...>, TS<C, Cs...>> {
-		static constexpr bool IsNormalChar(char c) {
-			return !(c == ',' || SIIsQuote(c) || SIIsOpenParam(c));
-		}
+	struct SIDispatch<SIAction::kNormal, tuple<Strs...>, TS<Acc...>, TS<C, Cs...>> {
+		using result_type = SIT<tuple<Strs...>, TS<Acc..., C>, TS<Cs...>>;
+	};
 
-		template <char D, enable_if_t<IsNormalChar(D), int> = 0>
-		static auto FML(TS<D>)
-			-> SIT<tuple<Strs...>, TS<Acc..., D>, TS<Cs...>>;
+	template <typename... Strs, char... Acc, char C, char... Cs>
+	struct SIDispatch<SIAction::kComma, tuple<Strs...>, TS<Acc...>, TS<C, Cs...>> {
+		using result_type = SIT<
+			tuple<Strs..., decltype(StripSpaces(TS<Acc...>()))>,
+			TS<>,
+			TS<Cs...>
+		>;
+	};
 
-		static auto FML(TS<','>)
-			-> SIT<
-				tuple<Strs..., decltype(StripSpaces(TS<Acc...>()))>,
-				TS<>,
-				TS<Cs...>
-			>;
+	template <typename... Strs, char... Acc, char C, char... Cs>
+	struct SIDispatch<SIAction::kQuote, tuple<Strs...>, TS<Acc...>, TS<C, Cs...>> {
+		using WTFRes = typename WTF<C, TS<Acc..., C>, TS<Cs...>>::result_type;
 
-		template <char D, enable_if_t<SIIsQuote(D), int> = 0,
-			typename WTFRes = typename WTF<C, TS<Acc..., D>, TS<Cs...>>::result_type>
-		static auto FML(TS<D>)
-			-> SIT<
-				tuple<Strs...>,
-				typename WTFRes::acc,
-				typename WTFRes::rem
-			>;
+		using result_type = SIT<
+			tuple<Strs...>,
+			typename WTFRes::acc,
+			typename WTFRes::rem
+		>;
+	};
 
-		template <char D, enable_if_t<SIIsOpenParam(D), int> = 0>
-		static auto FML(TS<D>)
-			-> SIPT<tuple<Strs...>, TS<SIMapParam(D)>, TS<Acc..., D>, TS<Cs...>>;
+	template <typename... Strs, char... Acc, char C, char... Cs>
+	struct SIDispatch<SIAction::kOpenParam, tuple<Strs...>, TS<Acc...>, TS<C, Cs...>> {
+		using result_type = SIPT<tuple<Strs...>, TS<SIMapParam(C)>, TS<Acc..., C>, TS<Cs...>>;
+	};
 
-		using result_type = decltype(FML(TS<C>()));
+
+	template <typename Strs, typename Acc, char C, char... Cs>
+	struct SI<Strs, Acc, TS<C, Cs...>> {
+		static constexpr SIAction GetAction() {
+			return
+				C == ',' ? SIAction::kComma :
+				SIIsQuote(C) ? SIAction::kQuote :
+				SIIsOpenParam(C) ? SIAction::kOpenParam :
+				SIAction::kNormal;
+		};
+
+		using result_type = typename SIDispatch<
+			GetAction(),
+			Strs,
+			Acc,
+			TS<C, Cs...>
+		>::result_type;
 	};
 
 	template <char... Cs>
-		auto Split(TS<Cs...>) -> SIT<tuple<>, TS<>, TS<Cs...>> {
+	auto Split(TS<Cs...>) -> SIT<tuple<>, TS<>, TS<Cs...>> {
 		return {};
 	}
 
