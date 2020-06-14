@@ -202,7 +202,7 @@ namespace LogImpl {
 
 
 	constexpr bool SIIsOpenParam(const char c) {
-		return c == '(' || c == '[' || c == '{';
+		return c == '(' || c == '[' || c == '{' || c == '<';
 	}
 
 	constexpr char SIMapParam(const char c) {
@@ -210,6 +210,7 @@ namespace LogImpl {
 			c == '(' ? ')' :
 			c == '[' ? ']' :
 			c == '{' ? '}' :
+			c == '<' ? '>' :
 			'\0';
 	}
 
