@@ -61,16 +61,16 @@ namespace LogImpl {
 
 	// StripTrailingUnderscores
 	template <typename, typename, typename>
-	struct STUI {};
+	struct StripTrailingUnderscoresImpl {};
 
 	template <char... As, char... Bs>
-	struct STUI<TS<As...>, TS<Bs...>, TS<>> {
+	struct StripTrailingUnderscoresImpl<TS<As...>, TS<Bs...>, TS<>> {
 		using result_type = TS<As...>;
 	};
 
 	template <char... As, char... Bs, char... Cs>
-	struct STUI<TS<As...>, TS<Bs...>, TS<'_', Cs...>> {
-		using result_type = typename STUI<
+	struct StripTrailingUnderscoresImpl<TS<As...>, TS<Bs...>, TS<'_', Cs...>> {
+		using result_type = typename StripTrailingUnderscoresImpl<
 			TS<As...>,
 			TS<Bs..., '_'>,
 			TS<Cs...>
@@ -78,8 +78,8 @@ namespace LogImpl {
 	};
 
 	template <char... As, char... Bs, char C, char... Cs>
-	struct STUI<TS<As...>, TS<Bs...>, TS<C, Cs...>> {
-		using result_type = typename STUI<
+	struct StripTrailingUnderscoresImpl<TS<As...>, TS<Bs...>, TS<C, Cs...>> {
+		using result_type = typename StripTrailingUnderscoresImpl<
 			TS<As..., Bs..., C>,
 			TS<>,
 			TS<Cs...>
@@ -88,7 +88,7 @@ namespace LogImpl {
 
 	template <char... Cs>
 	auto StripTrailingUnderscores(TS<Cs...>) ->
-		typename STUI<TS<>, TS<>, TS<Cs...>>::result_type {
+		typename StripTrailingUnderscoresImpl<TS<>, TS<>, TS<Cs...>>::result_type {
 		return {};
 	}
 
@@ -304,31 +304,51 @@ namespace LogImpl {
 		using result_type = SIT<Result, Acc, Rem>;
 	};
 
+	enum class SIPAction {
+		kCloseStack,
+		kOpenQuote,
+		kOpenParam,
+		kSlurp,
+	};
+
+	template <SIPAction, typename, typename, typename, typename>
+	struct SIPDispatch {};
+
 	template <typename Result, char S, char... Ss, char... Acc, char C, char... Cs>
-	struct SIP<Result, TS<S, Ss...>, TS<Acc...>, TS<C, Cs...>> {
-		static constexpr bool Else(char d) {
-			return !(S == d || SIIsQuote(d) || SIIsOpenParam(d));
+	struct SIPDispatch<SIPAction::kCloseStack, Result, TS<S, Ss...>, TS<Acc...>, TS<C, Cs...>> {
+		using result_type = SIPT<Result, TS<Ss...>, TS<Acc..., C>, TS<Cs...>>;
+	};
+
+	template <typename Result, typename Stack, char... Acc, char C, char... Cs>
+	struct SIPDispatch<SIPAction::kOpenQuote, Result, Stack, TS<Acc...>, TS<C, Cs...>> {
+		using WTFRes = typename WTF<C, TS<Acc..., C>, TS<Cs...>>::result_type;
+
+		using result_type = SIPT<Result, Stack,
+			typename WTFRes::acc, typename WTFRes::rem>;
+	};
+
+	template <typename Result, char... Ss, char... Acc, char C, char... Cs>
+	struct SIPDispatch<SIPAction::kOpenParam, Result, TS<Ss...>, TS<Acc...>, TS<C, Cs...>> {
+		using result_type = SIPT<Result, TS<SIMapParam(C), Ss...>, TS<Acc..., C>, TS<Cs...>>;
+	};
+
+	template <typename Result, typename Stack, char... Acc, char C, char... Cs>
+	struct SIPDispatch<SIPAction::kSlurp, Result, Stack, TS<Acc...>, TS<C, Cs...>> {
+		using result_type = SIPT<Result, Stack, TS<Acc..., C>, TS<Cs...>>;
+	};
+
+	template <typename Result, char S, char... Ss, typename Acc, char C, char... Cs>
+	struct SIP<Result, TS<S, Ss...>, Acc, TS<C, Cs...>> {
+		static constexpr SIPAction GetAction() {
+			return
+				C == S ? SIPAction::kCloseStack :
+				SIIsQuote(C) ? SIPAction::kOpenQuote :
+				SIIsOpenParam(C) ? SIPAction::kOpenParam :
+				SIPAction::kSlurp;
 		}
 
-		template <char D, enable_if_t<S == D, int> = 0>
-		static auto WTFDaYo(TS<D>)
-			-> SIPT<Result, TS<Ss...>, TS<Acc..., D>, TS<Cs...>>;
-
-		template <char D, enable_if_t<SIIsQuote(D), int> = 0,
-			typename WTFRes = typename WTF<C, TS<Acc..., D>, TS<Cs...>>::result_type>
-		static auto WTFDaYo(TS<D>)
-			-> SIPT<Result, TS<S, Ss...>,
-					typename WTFRes::acc, typename WTFRes::rem>;
-
-		template <char D, enable_if_t<SIIsOpenParam(D), int> = 0>
-		static auto WTFDaYo(TS<D>)
-			-> SIPT<Result, TS<SIMapParam(C), S, Ss...>, TS<Acc..., D>, TS<Cs...>>;
-
-		template <char D, enable_if_t<Else(D), int> = 0>
-		static auto WTFDaYo(TS<D>)
-			-> SIPT<Result, TS<S, Ss...>, TS<Acc..., D>, TS<Cs...>>;
-
-		using result_type = decltype(WTFDaYo(TS<C>()));
+		using result_type =
+			typename SIPDispatch<GetAction(), Result, TS<S, Ss...>, Acc, TS<C, Cs...>>::result_type;
 	};
 
 
